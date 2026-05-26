@@ -36,7 +36,6 @@ def calc_orientation(org: pg.Rect, dst: pg.Rect) -> tuple[float, float]:
     norm = math.sqrt(x_diff**2+y_diff**2)
     return x_diff/norm, y_diff/norm
 
-
 class Bird():
     """
     ゲームキャラクター（こうかとん）に関するクラス
@@ -108,6 +107,16 @@ class Bird():
                     self.vy = 0
                     self.jumping = False
                     self.jump_count = 0   # 足場に乗ったらリセット
+        screen.blit(self.rk_img, self.rect)
+    def change_img(self, num: int, screen: pg.Surface):
+        """ 
+        こうかとんの画像を切り替えるメソッド 
+        """
+        try:
+            self.k_img = pg.image.load(f"fig/{num}.png")
+            self.rk_img = pg.transform.flip(self.k_img, True, False)
+        except Exception:
+            pass
         screen.blit(self.rk_img, self.rect)
 
 
@@ -504,6 +513,31 @@ class Life():
             y = HEIGHT - 600
             screen.blit(self.img, (x, y))
 
+class GameOver:
+    """
+    ゲームオーバー画面を管理するクラス
+    """
+    def __init__(self):
+        # 1. 「Game Over」の文字をあらかじめ準備しておく
+        self.font = pg.font.Font(None, 100)
+        self.text = self.font.render("Game Over", True, (255, 0, 0))
+        
+        # 2. 画面を暗くするための半透明の黒いパネルを作っておく
+        self.shade = pg.Surface((1100, 650))  # WIDTH, HEIGHTの大きさ
+        self.shade.fill((0, 0, 0))
+        self.shade.set_alpha(150)  # 透明度（0〜255）
+
+    def run(self, screen, bird):
+        """ 
+        ゲームオーバー画面を実際に描画して、ゲームを止めるメソッド 
+        """
+        screen.blit(self.shade, (0, 0))
+        screen.blit(self.text, [1100 // 2 - 180, 650 // 2 - 50])
+        bird.change_img(8, screen)
+        pg.display.update()
+        time.sleep(2)
+
+            
 
 def main():
     pg.display.set_caption("走れ！こうかとん")
@@ -519,6 +553,7 @@ def main():
     bird = Bird()
     boss = Boss()
     hp = Hp()
+    gameover = GameOver()
 
 
     bombs = pg.sprite.Group()
@@ -642,6 +677,102 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT: return
 
+            if event.type == pg.KEYDOWN:
+                # スペースキーでジャンプ（独立した判定）
+                if event.key == pg.K_SPACE:
+                    if bird.jump_count < bird.max_jump:
+                        bird.vy = -15
+                        bird.jumping = True
+                        bird.jump_count += 1
+                
+                if event.key == pg.K_x: 
+                   if bird.beam_cooldown == 0:  # タイマーが0のときだけ発射可能
+                        beams.add(Beam(bird)) 
+                        bird.beam_cooldown = 150
+                   
+        for event in pg.event.get():
+            if event.type == pg.QUIT: return
+        for obst in pg.sprite.groupcollide(obstacle, beams, True, True).keys():
+            exps.add(Explosion(obst, 50))  # 障害物の位置に爆発エフェクトを発生させる
+            
+                
+                     
+
+        
+        # for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+        #     if bird.state == "hyper":       #課題４の無敵時間判定のために条件分岐
+        #         exps.add(Explosion(bomb, 50))
+        #         score.value += 1
+        #     else:
+        #         bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+        #         score.update(screen)
+        #         life.num -= 1       #課題１
+        #         pg.display.update()
+        #         if life.num <= 0:
+        #             time.sleep(2)
+        #             return  
+
+        #     if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:       #課題2の重力場判定
+        #         if score.value >= 10:      #scoreクラスの中にvalueという名前で書かれていたため
+        #             gravity.add(Gravity(400))
+        #             score.value -= 10       #見せるために一時的に10にしているだけだからあとで200に変えて
+
+        #     if event.type == pg.KEYDOWN and event.key == pg.K_e:        #課題３
+        #         if score.value >= 20:
+        #             EMP(emys, bombs, screen)
+        #             score.value -= 20
+
+        #     if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:   #課題４
+        #         if score.value >= 10:         #これも課題のため10にしておくけど、100に戻しておいて
+        #             bird.state = "hyper"
+        #             bird.hyper_life = 500
+        #             score.value -= 10
+
+        #     if event.type == pg.KEYDOWN and event.key == pg.K_s:    #課題５
+        #         if score.value >= 0 and len(shield) == 0:
+        #             shield.add(Shield(400, bird))
+        #             score.value -= 0
+
+        # if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
+        #     emys.add(Enemy())
+
+        # for emy in emys:
+        #     if emy.state == "stop" and tmr%emy.interval == 0:
+        #         # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
+        #         bombs.add(Bomb(emy, bird))
+
+        #for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():  # ビームと衝突した敵機リスト
+        #     exps.add(Explosion(emy, 100))  # 爆発エフェクト
+        #     score.value += 10  # 10点アップ
+        #     bird.change_img(6, screen)  # こうかとん喜びエフェクト
+
+        # for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # ビームと衝突した爆弾リスト
+        #     exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+        #     score.value += 1  # 1点アップ
+
+        # for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+        #     if bird.state == "hyper":       #課題４の無敵時間判定のために条件分岐
+        #         exps.add(Explosion(bomb, 50))
+        #         score.value += 1
+        #     else:
+        #         bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+        #         score.update(screen)
+        #         life.num -= 1       #課題１
+        #         pg.display.update()
+        #         if life.num <= 0:
+        #             time.sleep(2)
+        #             return     
+
+        # for emy in pg.sprite.groupcollide(emys, gravity, True, False).keys():  # 重力場と敵機の衝突判定
+        #     exps.add(Explosion(emy, 100))  # 爆発エフェクト
+
+        # for bomb in pg.sprite.groupcollide(bombs, gravity, True, False):
+        #     exps.add(Explosion(bomb, 50))
+
+        # for bomb in pg.sprite.groupcollide(shield, bombs, True, True):      #課題５　防御壁
+        #     exps.add(Explosion(bomb, 50))
+        
+
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 # 2回までジャンプ可能
                 if bird.jump_count < bird.max_jump:
@@ -670,17 +801,16 @@ def main():
             life.num -= 1       #ここでlifeを減らす
             pg.display.update()
             if life.num <= 0:
-                time.sleep(2)
+                gameover.run(screen, bird) 
                 return  
             
             # つららとの当たり判定
         for icicle in pg.sprite.spritecollide(bird, icicles, True):
             exps.add(Explosion(icicle, 50))
             life.num -= 1
-            pg.display.update()
-                
+            pg.display.update()    
             if life.num <= 0:
-                time.sleep(2)
+                gameover.run(screen, bird) 
                 return
             
         for beams in pg.sprite.spritecollide(boss, beams, True):
@@ -690,6 +820,13 @@ def main():
         
 
 
+        for beam_en in pg.sprite.spritecollide(bird, beam_ene, True):
+            exps.add(Explosion(beam_en, 50))
+            life.num -= 1
+            pg.display.update()    
+            if life.num <= 0:
+                gameover.run(screen, bird)
+                return       
         maps.update(screen, tmr)
 
         bird.update(screen, platforms)
